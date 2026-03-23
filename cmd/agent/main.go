@@ -10,7 +10,11 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kubesage/cluster-agent/internal/collector"
 	"github.com/kubesage/cluster-agent/internal/config"
 	"github.com/kubesage/cluster-agent/internal/exporter"
 	"github.com/kubesage/cluster-agent/internal/health"
@@ -65,7 +69,21 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to create metric instruments", zap.Error(err))
 	}
-	_ = instruments // Collectors (Plan 04) will use these
+
+	// Create Kubernetes clientset (in-cluster or kubeconfig for dev)
+	k8sClient, err := newKubernetesClient(logger)
+	if err != nil {
+		logger.Fatal("Failed to create Kubernetes client", zap.Error(err))
+	}
+
+	// Create and start the metric collector
+	coll := collector.New(k8sClient, instruments, logger, cfg.ClusterName, cfg.ScrapeInterval)
+	collectorErrCh := make(chan error, 1)
+	go func() {
+		if err := coll.Start(ctx); err != nil {
+			collectorErrCh <- err
+		}
+	}()
 
 	// Start health check server
 	healthServer := health.New(cfg.HealthPort)
@@ -85,9 +103,13 @@ func main() {
 		zap.Int("health_port", cfg.HealthPort),
 	)
 
-	// Wait for shutdown signal
-	sig := <-sigCh
-	logger.Info("Received shutdown signal", zap.String("signal", sig.String()))
+	// Wait for shutdown signal or collector error
+	select {
+	case sig := <-sigCh:
+		logger.Info("Received shutdown signal", zap.String("signal", sig.String()))
+	case err := <-collectorErrCh:
+		logger.Error("Collector error, shutting down", zap.Error(err))
+	}
 	cancel()
 
 	// Graceful shutdown with timeout
@@ -99,6 +121,28 @@ func main() {
 	}
 
 	logger.Info("KubeSage agent stopped")
+}
+
+// newKubernetesClient creates a Kubernetes clientset using in-cluster config
+// with a fallback to KUBECONFIG environment variable for local development.
+func newKubernetesClient(logger *zap.Logger) (kubernetes.Interface, error) {
+	// Try in-cluster config first (running inside K8s)
+	restCfg, err := rest.InClusterConfig()
+	if err != nil {
+		logger.Info("Not running in-cluster, falling back to kubeconfig")
+		// Fallback to kubeconfig for local development
+		kubeconfigPath := os.Getenv("KUBECONFIG")
+		if kubeconfigPath == "" {
+			home, _ := os.UserHomeDir()
+			kubeconfigPath = filepath.Join(home, ".kube", "config")
+		}
+		restCfg, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return kubernetes.NewForConfig(restCfg)
 }
 
 func newLogger(level string) *zap.Logger {
