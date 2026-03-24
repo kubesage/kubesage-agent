@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/client-go/kubernetes"
@@ -31,6 +32,11 @@ func main() {
 	// Create zap logger based on configured log level
 	logger := newLogger(cfg.LogLevel)
 	defer logger.Sync()
+
+	// Set OTel error handler to surface hidden SDK errors
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+		logger.Error("OTel SDK error", zap.Error(err))
+	}))
 
 	// Create OTel resource with cluster attributes
 	res := metrics.NewResource(cfg.ClusterName, "")
