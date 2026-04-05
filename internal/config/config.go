@@ -10,6 +10,7 @@ import (
 // Config holds the agent configuration parsed from flags and environment variables.
 type Config struct {
 	Endpoint       string
+	APIURL         string
 	Token          string
 	ClusterName    string
 	ScrapeInterval time.Duration
@@ -24,6 +25,7 @@ func Parse() (*Config, error) {
 	cfg := &Config{}
 
 	pflag.StringVar(&cfg.Endpoint, "endpoint", "", "Platform gRPC endpoint (env: KUBESAGE_ENDPOINT)")
+	pflag.StringVar(&cfg.APIURL, "api-url", "", "REST API base URL (env: KUBESAGE_API_URL, default: http://localhost:8080)")
 	pflag.StringVar(&cfg.Token, "token", "", "Cluster bootstrap token (env: KUBESAGE_TOKEN)")
 	pflag.StringVar(&cfg.ClusterName, "cluster-name", "", "Cluster name (env: KUBESAGE_CLUSTER_NAME, default: auto-detect)")
 	pflag.DurationVar(&cfg.ScrapeInterval, "scrape-interval", 30*time.Second, "Metrics scrape interval")
@@ -39,6 +41,9 @@ func Parse() (*Config, error) {
 	}
 	if cfg.Token == "" {
 		cfg.Token = envOrDefault("KUBESAGE_TOKEN", "")
+	}
+	if cfg.APIURL == "" {
+		cfg.APIURL = envOrDefault("KUBESAGE_API_URL", "http://localhost:8080")
 	}
 	if cfg.ClusterName == "" {
 		cfg.ClusterName = envOrDefault("KUBESAGE_CLUSTER_NAME", "")
