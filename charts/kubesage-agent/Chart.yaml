@@ -1,0 +1,17 @@
+apiVersion: v2
+name: kubesage-agent
+description: KubeSage cluster monitoring agent for Kubernetes
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: KubeSage
+    url: https://kubesage.com
+keywords:
+  - kubernetes
+  - monitoring
+  - observability
+  - kubesage
+home: https://github.com/kubesage/kubesage-agent
+sources:
+  - https://github.com/kubesage/kubesage-agent
