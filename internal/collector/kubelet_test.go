@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/kubesage/cluster-agent/internal/metrics"
+	"github.com/kubesage/kubesage-agent/internal/metrics"
 )
 
 func TestKubeletCollector_Collect(t *testing.T) {

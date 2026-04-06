@@ -1,0 +1,11 @@
+# Binaries
+/agent
+/kubesage-agent
+*.exe
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

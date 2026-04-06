@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/kubesage/cluster-agent/internal/metrics"
+	"github.com/kubesage/kubesage-agent/internal/metrics"
 )
 
 // Kubelet stats/summary API response types (only the fields we need).

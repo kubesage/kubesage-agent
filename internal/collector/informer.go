@@ -18,7 +18,7 @@ import (
 	appslisters "k8s.io/client-go/listers/apps/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 
-	"github.com/kubesage/cluster-agent/internal/metrics"
+	"github.com/kubesage/kubesage-agent/internal/metrics"
 )
 
 // InformerCollector watches K8s API objects via SharedInformerFactory and records

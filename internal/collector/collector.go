@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/kubesage/cluster-agent/internal/metrics"
+	"github.com/kubesage/kubesage-agent/internal/metrics"
 )
 
 // Collector orchestrates the informer and kubelet collectors, running both

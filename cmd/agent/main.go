@@ -15,11 +15,11 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/kubesage/cluster-agent/internal/collector"
-	"github.com/kubesage/cluster-agent/internal/config"
-	"github.com/kubesage/cluster-agent/internal/exporter"
-	"github.com/kubesage/cluster-agent/internal/health"
-	"github.com/kubesage/cluster-agent/internal/metrics"
+	"github.com/kubesage/kubesage-agent/internal/collector"
+	"github.com/kubesage/kubesage-agent/internal/config"
+	"github.com/kubesage/kubesage-agent/internal/exporter"
+	"github.com/kubesage/kubesage-agent/internal/health"
+	"github.com/kubesage/kubesage-agent/internal/metrics"
 )
 
 func main() {

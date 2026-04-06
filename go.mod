@@ -1,4 +1,4 @@
-module github.com/kubesage/cluster-agent
+module github.com/kubesage/kubesage-agent
 
 go 1.25.0
 
