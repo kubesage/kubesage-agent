@@ -21,17 +21,19 @@ type Summary struct {
 	Pods []PodStats `json:"pods"`
 }
 
-// NodeStats holds node-level CPU and memory usage.
+// NodeStats holds node-level CPU, memory, and network usage.
 type NodeStats struct {
-	CPU    *CPUStats    `json:"cpu"`
-	Memory *MemoryStats `json:"memory"`
+	CPU     *CPUStats     `json:"cpu"`
+	Memory  *MemoryStats  `json:"memory"`
+	Network *NetworkStats `json:"network"`
 }
 
-// PodStats holds per-pod CPU and memory usage.
+// PodStats holds per-pod CPU, memory, and network usage.
 type PodStats struct {
-	PodRef PodRef       `json:"podRef"`
-	CPU    *CPUStats    `json:"cpu"`
-	Memory *MemoryStats `json:"memory"`
+	PodRef  PodRef        `json:"podRef"`
+	CPU     *CPUStats     `json:"cpu"`
+	Memory  *MemoryStats  `json:"memory"`
+	Network *NetworkStats `json:"network"`
 }
 
 // PodRef identifies a pod by name and namespace.
@@ -48,6 +50,17 @@ type CPUStats struct {
 // MemoryStats holds memory usage in bytes.
 type MemoryStats struct {
 	UsageBytes *uint64 `json:"usageBytes"`
+}
+
+// NetworkStats holds network I/O stats with per-interface breakdown.
+type NetworkStats struct {
+	Interfaces []NetworkInterfaceStats `json:"interfaces"`
+}
+
+// NetworkInterfaceStats holds rx/tx bytes for a single network interface.
+type NetworkInterfaceStats struct {
+	RxBytes *uint64 `json:"rxBytes"`
+	TxBytes *uint64 `json:"txBytes"`
 }
 
 // KubeletCollector scrapes the kubelet stats/summary API for real-time CPU and memory
@@ -131,6 +144,21 @@ func (kc *KubeletCollector) scrapeNode(ctx context.Context, nodeName string) {
 		kc.inst.NodeMemoryUsage.Record(ctx, int64(*summary.Node.Memory.UsageBytes), nodeAttrs)
 	}
 
+	// Node network I/O
+	if summary.Node.Network != nil {
+		var rxTotal, txTotal uint64
+		for _, iface := range summary.Node.Network.Interfaces {
+			if iface.RxBytes != nil {
+				rxTotal += *iface.RxBytes
+			}
+			if iface.TxBytes != nil {
+				txTotal += *iface.TxBytes
+			}
+		}
+		kc.inst.NodeNetworkRx.Record(ctx, int64(rxTotal), nodeAttrs)
+		kc.inst.NodeNetworkTx.Record(ctx, int64(txTotal), nodeAttrs)
+	}
+
 	// Per-pod usage metrics
 	for _, pod := range summary.Pods {
 		podAttrs := otelmetric.WithAttributeSet(attribute.NewSet(
@@ -147,6 +175,21 @@ func (kc *KubeletCollector) scrapeNode(ctx context.Context, nodeName string) {
 
 		if pod.Memory != nil && pod.Memory.UsageBytes != nil {
 			kc.inst.PodMemoryUsage.Record(ctx, int64(*pod.Memory.UsageBytes), podAttrs)
+		}
+
+		// Pod network I/O
+		if pod.Network != nil {
+			var rxTotal, txTotal uint64
+			for _, iface := range pod.Network.Interfaces {
+				if iface.RxBytes != nil {
+					rxTotal += *iface.RxBytes
+				}
+				if iface.TxBytes != nil {
+					txTotal += *iface.TxBytes
+				}
+			}
+			kc.inst.PodNetworkRx.Record(ctx, int64(rxTotal), podAttrs)
+			kc.inst.PodNetworkTx.Record(ctx, int64(txTotal), podAttrs)
 		}
 	}
 }

@@ -6,7 +6,7 @@
 
 ## Overview
 
-KubeSage cluster monitoring agent for Kubernetes. Collects resource metrics (CPU, memory, pods), node health, and workload status from Kubernetes clusters and reports to the KubeSage platform or any compatible endpoint.
+KubeSage cluster monitoring agent for Kubernetes. Collects resource metrics (CPU, memory, network I/O, pods), node health, and workload status from Kubernetes clusters and reports to the KubeSage platform or any compatible endpoint.
 
 ## Features
 
@@ -16,6 +16,8 @@ KubeSage cluster monitoring agent for Kubernetes. Collects resource metrics (CPU
 - Health and readiness endpoints (`/healthz`, `/readyz`)
 - Configurable via environment variables
 - Lightweight Alpine-based Docker image
+- K8s event forwarding to platform API
+- Network I/O metrics (rx/tx bytes per pod and node)
 - Helm chart for easy Kubernetes deployment
 
 ## Installation
@@ -50,6 +52,7 @@ go install github.com/kubesage/kubesage-agent/cmd/agent@latest
 | `COLLECTION_INTERVAL` | Metrics collection interval | `30s` |
 | `LOG_LEVEL` | Log level (debug, info, warn, error) | `info` |
 | `HEALTH_PORT` | Health endpoint port | `8080` |
+| `KUBESAGE_CLUSTER_ID` | Cluster ID for event forwarding (optional) | `-` |
 | `CERT_DIR` | Directory for TLS certificates (mTLS) | `/etc/kubesage/certs` |
 
 ## Development
@@ -77,7 +80,7 @@ make clean
 cmd/agent/main.go          # Entrypoint: config, K8s client, OTel setup, signal handling
 internal/
   config/                  # Environment-based configuration with pflag
-  collector/               # Kubelet scraper + K8s informer-based metric collection
+  collector/               # Kubelet scraper + K8s informer-based metric collection + event forwarding
   exporter/                # OTLP/gRPC meter provider with optional mTLS
   health/                  # HTTP health/readiness server
   metrics/                 # OTel instrument definitions and K8s resource attributes

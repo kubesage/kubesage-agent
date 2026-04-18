@@ -12,6 +12,7 @@ type Config struct {
 	Endpoint       string
 	APIURL         string
 	Token          string
+	ClusterID      string
 	ClusterName    string
 	ScrapeInterval time.Duration
 	LogLevel       string
@@ -27,6 +28,7 @@ func Parse() (*Config, error) {
 	pflag.StringVar(&cfg.Endpoint, "endpoint", "", "Platform gRPC endpoint (env: KUBESAGE_ENDPOINT)")
 	pflag.StringVar(&cfg.APIURL, "api-url", "", "REST API base URL (env: KUBESAGE_API_URL, default: http://localhost:8080)")
 	pflag.StringVar(&cfg.Token, "token", "", "Cluster bootstrap token (env: KUBESAGE_TOKEN)")
+	pflag.StringVar(&cfg.ClusterID, "cluster-id", "", "Cluster ID for platform API (env: KUBESAGE_CLUSTER_ID)")
 	pflag.StringVar(&cfg.ClusterName, "cluster-name", "", "Cluster name (env: KUBESAGE_CLUSTER_NAME, default: auto-detect)")
 	pflag.DurationVar(&cfg.ScrapeInterval, "scrape-interval", 30*time.Second, "Metrics scrape interval")
 	pflag.StringVar(&cfg.LogLevel, "log-level", "info", "Log level (debug, info, warn, error)")
@@ -44,6 +46,9 @@ func Parse() (*Config, error) {
 	}
 	if cfg.APIURL == "" {
 		cfg.APIURL = envOrDefault("KUBESAGE_API_URL", "http://localhost:8080")
+	}
+	if cfg.ClusterID == "" {
+		cfg.ClusterID = envOrDefault("KUBESAGE_CLUSTER_ID", "")
 	}
 	if cfg.ClusterName == "" {
 		cfg.ClusterName = envOrDefault("KUBESAGE_CLUSTER_NAME", "")

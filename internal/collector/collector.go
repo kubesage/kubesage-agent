@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/kubesage/kubesage-agent/internal/api"
 	"github.com/kubesage/kubesage-agent/internal/metrics"
 )
 
@@ -15,16 +16,24 @@ import (
 type Collector struct {
 	informer *InformerCollector
 	kubelet  *KubeletCollector
+	events   *EventCollector
 	interval time.Duration
 	logger   *zap.Logger
 }
 
 // New creates a Collector that coordinates informer-based K8s API metrics
 // and kubelet stats/summary scraping.
-func New(clientset kubernetes.Interface, inst *metrics.Instruments, logger *zap.Logger, clusterName string, interval time.Duration) *Collector {
+func New(clientset kubernetes.Interface, inst *metrics.Instruments, logger *zap.Logger, clusterName string, interval time.Duration, apiClient *api.Client) *Collector {
+	ic := NewInformerCollector(clientset, inst, logger, clusterName, interval)
+
+	// EventCollector shares the same informer factory so events are watched
+	// alongside pods/nodes/deployments without extra API connections.
+	ec := NewEventCollector(ic.factory, apiClient, logger)
+
 	return &Collector{
-		informer: NewInformerCollector(clientset, inst, logger, clusterName, interval),
+		informer: ic,
 		kubelet:  NewKubeletCollector(clientset, inst, logger, clusterName),
+		events:   ec,
 		interval: interval,
 		logger:   logger,
 	}

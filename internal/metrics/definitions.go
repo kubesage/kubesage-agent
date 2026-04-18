@@ -39,6 +39,12 @@ type Instruments struct {
 	// Deployment status
 	DeploymentAvailable metric.Int64Gauge
 	DeploymentDesired   metric.Int64Gauge
+
+	// Network I/O
+	PodNetworkRx  metric.Int64Gauge
+	PodNetworkTx  metric.Int64Gauge
+	NodeNetworkRx metric.Int64Gauge
+	NodeNetworkTx metric.Int64Gauge
 }
 
 // NewInstruments creates all 17 OTel metric instruments for K8s monitoring.
@@ -174,6 +180,39 @@ func NewInstruments(meter metric.Meter) (*Instruments, error) {
 
 	inst.DeploymentDesired, err = meter.Int64Gauge("k8s.deployment.desired",
 		metric.WithDescription("Number of desired replicas in a deployment"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Network I/O
+	inst.PodNetworkRx, err = meter.Int64Gauge("k8s.pod.network.rx",
+		metric.WithUnit("By"),
+		metric.WithDescription("Pod network bytes received"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	inst.PodNetworkTx, err = meter.Int64Gauge("k8s.pod.network.tx",
+		metric.WithUnit("By"),
+		metric.WithDescription("Pod network bytes transmitted"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	inst.NodeNetworkRx, err = meter.Int64Gauge("k8s.node.network.rx",
+		metric.WithUnit("By"),
+		metric.WithDescription("Node network bytes received"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	inst.NodeNetworkTx, err = meter.Int64Gauge("k8s.node.network.tx",
+		metric.WithUnit("By"),
+		metric.WithDescription("Node network bytes transmitted"),
 	)
 	if err != nil {
 		return nil, err

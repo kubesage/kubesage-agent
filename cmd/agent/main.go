@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kubesage/kubesage-agent/internal/api"
 	"github.com/kubesage/kubesage-agent/internal/collector"
 	"github.com/kubesage/kubesage-agent/internal/config"
 	"github.com/kubesage/kubesage-agent/internal/exporter"
@@ -82,8 +83,20 @@ func main() {
 		logger.Fatal("Failed to create Kubernetes client", zap.Error(err))
 	}
 
+	// Create API client for event forwarding (requires APIURL + ClusterID + Token)
+	var apiClient *api.Client
+	if cfg.APIURL != "" && cfg.ClusterID != "" && cfg.Token != "" {
+		apiClient = api.NewClient(cfg.APIURL, cfg.Token, cfg.ClusterID)
+		logger.Info("API client configured for event forwarding",
+			zap.String("api_url", cfg.APIURL),
+			zap.String("cluster_id", cfg.ClusterID),
+		)
+	} else {
+		logger.Info("API client not configured, event forwarding disabled")
+	}
+
 	// Create and start the metric collector
-	coll := collector.New(k8sClient, instruments, logger, cfg.ClusterName, cfg.ScrapeInterval)
+	coll := collector.New(k8sClient, instruments, logger, cfg.ClusterName, cfg.ScrapeInterval, apiClient)
 	collectorErrCh := make(chan error, 1)
 	go func() {
 		if err := coll.Start(ctx); err != nil {
