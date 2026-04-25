@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Repo: oss/kubesage-agent
+# Phase 20.5 supply-chain wrapper — go
+#
+# Allowed subcommands (FALL THROUGH — read-only, no fetch, no install scripts):
+#   vet, fmt, version, env, doc, list
+# Per CONTEXT.md decision B, these are read-only diagnostics allowed on host.
+# The wrapper exec's the real `go` binary directly without requiring KUBESAGE_ALLOW_HOST=1.
+#
+# Blocked subcommands (require make target or KUBESAGE_ALLOW_HOST=1):
+#   build, test, run, install, get, mod, tool, work, generate, telemetry
+set -euo pipefail
+
+SUBCMD="${1:-}"
+
+# ---------------------------------------------------------------------------
+# Allowed-subcommand fall-through (H2 fix per CONTEXT.md decision B).
+# These commands don't fetch and don't run install scripts — safe on host.
+# ---------------------------------------------------------------------------
+case "$SUBCMD" in
+  vet|fmt|version|env|doc|list)
+    WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"
+    CLEAN_PATH=$(echo ":$PATH:" | sed -e "s|:$WRAPPER_DIR:|:|g" -e 's|^:||' -e 's|:$||')
+    REAL_BIN=$(env -i PATH="$CLEAN_PATH" command -v go || true)
+    if [[ -z "$REAL_BIN" ]]; then
+      echo "✗ go ($SUBCMD allowed on host) but no real go binary on PATH" >&2
+      exit 127
+    fi
+    # Pass through with full env preserved (read-only — no need for env -i)
+    exec "$REAL_BIN" "$@"
+    ;;
+esac
+
+# ---------------------------------------------------------------------------
+# Bypass path — KUBESAGE_ALLOW_HOST=1 → exec real binary with clean PATH
+# ---------------------------------------------------------------------------
+if [[ "${KUBESAGE_ALLOW_HOST:-0}" == "1" ]]; then
+  WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"
+  CLEAN_PATH=$(echo ":$PATH:" | sed -e "s|:$WRAPPER_DIR:|:|g" -e 's|^:||' -e 's|:$||')
+  REAL_BIN=$(env -i PATH="$CLEAN_PATH" command -v go || true)
+  [[ -n "$REAL_BIN" ]] || { echo "✗ no real go on PATH" >&2; exit 127; }
+  # Preserve GOPROXY/GOPRIVATE/GOPATH/GOFLAGS/GOSUMDB/GOMODCACHE if present
+  exec env -i PATH="$CLEAN_PATH" HOME="$HOME" USER="$USER" SHELL="$SHELL" \
+    TERM="${TERM:-xterm}" KUBESAGE_ALLOW_HOST=1 \
+    ${GOPROXY:+GOPROXY=$GOPROXY} \
+    ${GOPRIVATE:+GOPRIVATE=$GOPRIVATE} \
+    ${GOPATH:+GOPATH=$GOPATH} \
+    ${GOFLAGS:+GOFLAGS=$GOFLAGS} \
+    ${GOSUMDB:+GOSUMDB=$GOSUMDB} \
+    ${GOMODCACHE:+GOMODCACHE=$GOMODCACHE} \
+    "$REAL_BIN" "$@"
+fi
+
+# ---------------------------------------------------------------------------
+# Block path — emit multi-line error and exit 1.
+# ---------------------------------------------------------------------------
+case "$SUBCMD" in
+  build)
+    MAKE_HINT="make build"
+    DOCKER_HINT="docker compose run --rm app go build ./..."
+    ;;
+  test)
+    MAKE_HINT="make test"
+    DOCKER_HINT="docker compose run --rm app go test ./..."
+    ;;
+  run)
+    MAKE_HINT="make dev"
+    # $* already starts with "run" — don't double it
+    DOCKER_HINT="docker compose run --rm app go $*"
+    ;;
+  install)
+    MAKE_HINT="n/a (use docker compose run)"
+    DOCKER_HINT="docker compose run --rm app go install ${2:-<pkg>}"
+    ;;
+  get|mod|tool|work|generate|telemetry)
+    MAKE_HINT="n/a (use docker compose run)"
+    DOCKER_HINT="docker compose run --rm app go $*"
+    ;;
+  *)
+    MAKE_HINT="n/a (use docker compose run)"
+    DOCKER_HINT="docker compose run --rm app go $*"
+    ;;
+esac
+
+cat <<EOF >&2
+✗ go blocked on host (Phase 20.5 supply-chain rule)
+
+  Reason: go build / go test / go install fetch and compile arbitrary
+  modules from the module proxy and run their init() code on the host
+  with your user privileges.
+  See: kubesage/CLAUDE.md > Local Development Rule
+
+  Container equivalent: $MAKE_HINT
+  Or: $DOCKER_HINT
+
+  To bypass once: KUBESAGE_ALLOW_HOST=1 go $*
+
+  Allowed on host (no wrapper block): go vet, go fmt, go version, go env, go doc, go list
+
+EOF
+exit 1
