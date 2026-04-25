@@ -1,0 +1,16 @@
+# Phase 20.5 — kubesage-agent air config
+# Used inside Dockerfile.dev's CMD ("air -c .air.toml") to drive HMR.
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/agent ./cmd/agent"
+  bin = "./tmp/agent"
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "vendor", "charts"]
+  delay = 1000
+  stop_on_error = true
+
+[log]
+  time = true

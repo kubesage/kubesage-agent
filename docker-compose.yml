@@ -1,0 +1,48 @@
+# Phase 20.5 — kubesage-agent dev compose.
+# No external deps required (agent talks to OTel collector externally).
+# Run `docker compose --profile dev watch` for HMR; bare `docker compose up -d`
+# is intentionally a no-op (no deps services).
+#
+# NOTE (L1 — known residual attack surface): the kubeconfig mount below grants
+# the agent dev container read-only access to host kubeconfig so it can reach
+# local clusters. A malicious dependency (post-supply-chain pinning, pre-20.5)
+# could exfiltrate cluster credentials from the container layer. For dev work
+# that doesn't need cluster access, run with `KUBECONFIG=/dev/null make dev`.
+services:
+  agent:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4317}
+      KUBESAGE_AGENT_LOG_LEVEL: debug
+      KUBECONFIG: /kubeconfig
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./:/app
+      - agent_go_pkg:/go/pkg
+      - agent_go_build:/root/.cache/go-build
+      # Mount user kubeconfig read-only for cluster access during dev.
+      # Override path via host KUBECONFIG env-var. Set to /dev/null to disable.
+      # See README.md Local Development Rule for residual-attack-surface note.
+      - ${KUBECONFIG:-${HOME}/.kube/config}:/kubeconfig:ro
+    develop:
+      watch:
+        - action: sync
+          path: ./cmd
+          target: /app/cmd
+        - action: sync
+          path: ./internal
+          target: /app/internal
+        - action: rebuild
+          path: ./go.mod
+        - action: rebuild
+          path: ./go.sum
+        - action: rebuild
+          path: ./Dockerfile.dev
+
+volumes:
+  agent_go_pkg:
+  agent_go_build:

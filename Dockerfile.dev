@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1
+# Phase 20.5 — oss/kubesage-agent Dockerfile.dev
+#
+# Dev image for the kubesage cluster monitoring agent.
+# Uses `air` for HMR (rebuild-on-save) inside the container.
+# Source is bind-mounted from the host at /app; module cache + build cache
+# live in named volumes (see docker-compose.yml) so macOS bind-mount slowness
+# is avoided for go build artifacts.
+#
+# This image is NEVER used to produce a production artifact — see Dockerfile
+# (multi-stage, distroless-ish alpine) for that path.
+FROM golang:1.25-alpine AS dev
+
+WORKDIR /app
+
+RUN apk add --no-cache ca-certificates git
+
+# Pinned air version — bumping requires a Phase-20.5 review (supply-chain).
+RUN go install github.com/air-verse/air@v1.61.7
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+EXPOSE 9090
+
+CMD ["air", "-c", ".air.toml"]
