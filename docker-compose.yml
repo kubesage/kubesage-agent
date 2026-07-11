@@ -15,7 +15,9 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     environment:
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4317}
+      # CR-02: the agent reads KUBESAGE_ENDPOINT (internal/config/config.go),
+      # never the OTel SDK's OTEL_EXPORTER_OTLP_ENDPOINT. gRPC host:port form.
+      KUBESAGE_ENDPOINT: ${KUBESAGE_ENDPOINT:-host.docker.internal:4317}
       KUBESAGE_AGENT_LOG_LEVEL: debug
       KUBECONFIG: /kubeconfig
     ports:

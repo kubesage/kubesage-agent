@@ -21,6 +21,13 @@ resources:
     cpu: 500m
     memory: 256Mi
 
+# The agent reads ONLY KUBESAGE_* variables (internal/config/config.go).
+# KUBESAGE_ENDPOINT (OTLP/gRPC collector, host:port form), KUBESAGE_TOKEN,
+# KUBESAGE_TENANT_ID and KUBESAGE_CLUSTER_ID are REQUIRED — the agent exits at
+# startup if any is empty. The deployment template renders only non-empty
+# values, so leaving a required key "" produces a crash-looping pod.
+# (CR-02: the previously-listed OTEL_EXPORTER_OTLP_ENDPOINT was never read by
+# the agent and has been removed — set KUBESAGE_ENDPOINT instead.)
 env:
   KUBESAGE_API_URL: ""
   KUBESAGE_ENDPOINT: ""
@@ -28,7 +35,6 @@ env:
   KUBESAGE_TENANT_ID: ""
   KUBESAGE_CLUSTER_ID: ""
   KUBESAGE_CLUSTER_NAME: ""
-  OTEL_EXPORTER_OTLP_ENDPOINT: ""
 
 nodeSelector: {}
 tolerations: []
