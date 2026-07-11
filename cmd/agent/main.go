@@ -11,16 +11,22 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kubesage/kubesage-agent/internal/api"
 	"github.com/kubesage/kubesage-agent/internal/collector"
 	"github.com/kubesage/kubesage-agent/internal/config"
 	"github.com/kubesage/kubesage-agent/internal/exporter"
 	"github.com/kubesage/kubesage-agent/internal/health"
 	"github.com/kubesage/kubesage-agent/internal/metrics"
 )
+
+// version is the agent version reported in heartbeats. Override at build time
+// via -ldflags "-X main.version=<tag>".
+var version = "dev"
 
 func main() {
 	cfg, err := config.Parse()
@@ -38,8 +44,8 @@ func main() {
 		logger.Error("OTel SDK error", zap.Error(err))
 	}))
 
-	// Create OTel resource with cluster attributes
-	res := metrics.NewResource(cfg.ClusterName, "")
+	// Create OTel resource with cluster + tenant attributes (cluster_id becomes a metric label)
+	res := metrics.NewResource(cfg.ClusterName, cfg.TenantID, cfg.ClusterID)
 
 	// Set up context with signal handling for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -91,6 +97,25 @@ func main() {
 		}
 	}()
 
+	// Construct the REST API client and drive a tenant-scoped heartbeat loop.
+	// Mirrors the collector goroutine shape: non-blocking, ctx-cancelled, errors
+	// logged (never fatal — a transient heartbeat failure must not crash the agent).
+	apiClient := api.NewClient(cfg.APIURL, cfg.Token, cfg.TenantID, cfg.ClusterID)
+	go func() {
+		ticker := time.NewTicker(cfg.ScrapeInterval)
+		defer ticker.Stop()
+		// Emit an initial heartbeat immediately so the cluster flips to connected.
+		sendHeartbeat(ctx, apiClient, k8sClient, logger)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				sendHeartbeat(ctx, apiClient, k8sClient, logger)
+			}
+		}
+	}()
+
 	// Start health check server
 	healthServer := health.New(cfg.HealthPort)
 	go func() {
@@ -127,6 +152,32 @@ func main() {
 	}
 
 	logger.Info("KubeSage agent stopped")
+}
+
+// sendHeartbeat collects the current node/pod counts and reports a heartbeat to
+// the tenant-scoped API. Errors are logged, never fatal. The client never logs
+// the token (T-39-03-02), so a failed heartbeat cannot leak the credential.
+func sendHeartbeat(ctx context.Context, client *api.Client, k8sClient kubernetes.Interface, logger *zap.Logger) {
+	nodeCount, podCount := clusterCounts(ctx, k8sClient, logger)
+	if err := client.Heartbeat(ctx, version, nodeCount, podCount); err != nil {
+		logger.Warn("Heartbeat failed", zap.Error(err))
+	}
+}
+
+// clusterCounts returns the current node and pod counts from the K8s API.
+// On error it degrades gracefully (logs at debug, returns best-effort counts).
+func clusterCounts(ctx context.Context, k8sClient kubernetes.Interface, logger *zap.Logger) (int, int) {
+	nodes, err := k8sClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		logger.Debug("Failed to list nodes for heartbeat", zap.Error(err))
+		return 0, 0
+	}
+	pods, err := k8sClient.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		logger.Debug("Failed to list pods for heartbeat", zap.Error(err))
+		return len(nodes.Items), 0
+	}
+	return len(nodes.Items), len(pods.Items)
 }
 
 // newKubernetesClient creates a Kubernetes clientset using in-cluster config

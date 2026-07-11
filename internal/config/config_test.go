@@ -34,14 +34,36 @@ func TestParse_MissingToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "token")
 }
 
+func TestParse_MissingTenantID(t *testing.T) {
+	resetFlags()
+	os.Args = []string{"agent", "--endpoint=localhost:4317", "--token=test-token", "--cluster-id=cluster-1"}
+	os.Unsetenv("KUBESAGE_TENANT_ID")
+
+	_, err := Parse()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tenant-id")
+}
+
+func TestParse_MissingClusterID(t *testing.T) {
+	resetFlags()
+	os.Args = []string{"agent", "--endpoint=localhost:4317", "--token=test-token", "--tenant-id=tenant-1"}
+	os.Unsetenv("KUBESAGE_CLUSTER_ID")
+
+	_, err := Parse()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cluster-id")
+}
+
 func TestParse_Defaults(t *testing.T) {
 	resetFlags()
-	os.Args = []string{"agent", "--endpoint=localhost:4317", "--token=test-token"}
+	os.Args = []string{"agent", "--endpoint=localhost:4317", "--token=test-token", "--tenant-id=tenant-1", "--cluster-id=cluster-1"}
 
 	cfg, err := Parse()
 	require.NoError(t, err)
 	assert.Equal(t, "localhost:4317", cfg.Endpoint)
 	assert.Equal(t, "test-token", cfg.Token)
+	assert.Equal(t, "tenant-1", cfg.TenantID)
+	assert.Equal(t, "cluster-1", cfg.ClusterID)
 	assert.Equal(t, 30*time.Second, cfg.ScrapeInterval)
 	assert.Equal(t, "info", cfg.LogLevel)
 	assert.Equal(t, 8080, cfg.HealthPort)
@@ -53,11 +75,17 @@ func TestParse_EnvFallback(t *testing.T) {
 	os.Args = []string{"agent"}
 	os.Setenv("KUBESAGE_ENDPOINT", "env-endpoint:4317")
 	os.Setenv("KUBESAGE_TOKEN", "env-token")
+	os.Setenv("KUBESAGE_TENANT_ID", "env-tenant")
+	os.Setenv("KUBESAGE_CLUSTER_ID", "env-cluster")
 	defer os.Unsetenv("KUBESAGE_ENDPOINT")
 	defer os.Unsetenv("KUBESAGE_TOKEN")
+	defer os.Unsetenv("KUBESAGE_TENANT_ID")
+	defer os.Unsetenv("KUBESAGE_CLUSTER_ID")
 
 	cfg, err := Parse()
 	require.NoError(t, err)
 	assert.Equal(t, "env-endpoint:4317", cfg.Endpoint)
 	assert.Equal(t, "env-token", cfg.Token)
+	assert.Equal(t, "env-tenant", cfg.TenantID)
+	assert.Equal(t, "env-cluster", cfg.ClusterID)
 }

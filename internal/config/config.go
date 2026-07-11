@@ -12,6 +12,8 @@ type Config struct {
 	Endpoint       string
 	APIURL         string
 	Token          string
+	TenantID       string
+	ClusterID      string
 	ClusterName    string
 	ScrapeInterval time.Duration
 	LogLevel       string
@@ -20,13 +22,16 @@ type Config struct {
 }
 
 // Parse parses agent configuration from command-line flags and environment variables.
-// Flags take precedence over environment variables. Endpoint and Token are required.
+// Flags take precedence over environment variables. Endpoint, Token, TenantID and
+// ClusterID are required (the last two scope tenant API routes + metric labels).
 func Parse() (*Config, error) {
 	cfg := &Config{}
 
 	pflag.StringVar(&cfg.Endpoint, "endpoint", "", "Platform gRPC endpoint (env: KUBESAGE_ENDPOINT)")
 	pflag.StringVar(&cfg.APIURL, "api-url", "", "REST API base URL (env: KUBESAGE_API_URL, default: http://localhost:8080)")
 	pflag.StringVar(&cfg.Token, "token", "", "Cluster bootstrap token (env: KUBESAGE_TOKEN)")
+	pflag.StringVar(&cfg.TenantID, "tenant-id", "", "Tenant ID for tenant-scoped API routes (env: KUBESAGE_TENANT_ID)")
+	pflag.StringVar(&cfg.ClusterID, "cluster-id", "", "Cluster ID for tenant-scoped API routes + metric labels (env: KUBESAGE_CLUSTER_ID)")
 	pflag.StringVar(&cfg.ClusterName, "cluster-name", "", "Cluster name (env: KUBESAGE_CLUSTER_NAME, default: auto-detect)")
 	pflag.DurationVar(&cfg.ScrapeInterval, "scrape-interval", 30*time.Second, "Metrics scrape interval")
 	pflag.StringVar(&cfg.LogLevel, "log-level", "info", "Log level (debug, info, warn, error)")
@@ -42,6 +47,12 @@ func Parse() (*Config, error) {
 	if cfg.Token == "" {
 		cfg.Token = envOrDefault("KUBESAGE_TOKEN", "")
 	}
+	if cfg.TenantID == "" {
+		cfg.TenantID = envOrDefault("KUBESAGE_TENANT_ID", "")
+	}
+	if cfg.ClusterID == "" {
+		cfg.ClusterID = envOrDefault("KUBESAGE_CLUSTER_ID", "")
+	}
 	if cfg.APIURL == "" {
 		cfg.APIURL = envOrDefault("KUBESAGE_API_URL", "http://localhost:8080")
 	}
@@ -55,6 +66,12 @@ func Parse() (*Config, error) {
 	}
 	if cfg.Token == "" {
 		return nil, fmt.Errorf("--token or KUBESAGE_TOKEN is required")
+	}
+	if cfg.TenantID == "" {
+		return nil, fmt.Errorf("--tenant-id or KUBESAGE_TENANT_ID is required")
+	}
+	if cfg.ClusterID == "" {
+		return nil, fmt.Errorf("--cluster-id or KUBESAGE_CLUSTER_ID is required")
 	}
 
 	return cfg, nil
