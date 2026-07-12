@@ -8,9 +8,10 @@ BINARY=kubesage-agent
 # C1 fix: each verb target has its recipe DIRECTLY in the same target body.
 # ---------------------------------------------------------------------------
 
-## install: go mod download inside container.
+## install: go mod download inside container. go runs IN the container, so no
+## KUBESAGE_ALLOW_HOST bypass is involved — mirrors build:/test: (IN-05).
 install:
-	KUBESAGE_ALLOW_HOST=1 docker compose --profile dev run --rm agent go mod download
+	docker compose --profile dev run --rm agent go mod download
 
 ## dev: Bring up agent with HMR via docker compose watch.
 ## C1 fix: recipe DIRECTLY under `dev:` (calls dev-up as prereq, runs watch in own body).
