@@ -23,9 +23,11 @@ dev-up:
 dev-down:
 	docker compose --profile dev down
 
-## build: Build the agent binary inside container.
+## build: Build the agent binary inside container. go runs IN the container, so no
+## KUBESAGE_ALLOW_HOST bypass is involved (docker compose is a host-allowed shell) —
+## mirrors the `test:` target's convention (IN-02).
 build:
-	KUBESAGE_ALLOW_HOST=1 docker compose --profile dev run --rm agent go build -o /tmp/$(BINARY) ./cmd/agent
+	docker compose --profile dev run --rm agent go build -o /tmp/$(BINARY) ./cmd/agent
 
 ## test: Run tests inside container. -race stays enabled — Dockerfile.dev ships the
 ## cgo toolchain (gcc musl-dev) the race runtime needs. go runs IN the container, so
