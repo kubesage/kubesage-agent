@@ -27,9 +27,11 @@ dev-down:
 build:
 	KUBESAGE_ALLOW_HOST=1 docker compose --profile dev run --rm agent go build -o /tmp/$(BINARY) ./cmd/agent
 
-## test: Run tests inside container.
+## test: Run tests inside container. -race stays enabled — Dockerfile.dev ships the
+## cgo toolchain (gcc musl-dev) the race runtime needs. go runs IN the container, so
+## no KUBESAGE_ALLOW_HOST bypass is involved (docker compose is host-allowed shell).
 test:
-	KUBESAGE_ALLOW_HOST=1 docker compose --profile dev run --rm agent go test -race ./...
+	docker compose --profile dev run --rm agent go test -race ./...
 
 ## lint: Run golangci-lint (host-side allowed per Local Development Rule).
 lint:

@@ -21,6 +21,16 @@ RUN go install github.com/air-verse/air@v1.61.7
 COPY go.mod go.sum ./
 RUN go mod download
 
+# -race toolchain (Option A — keeps race detection in the containerized test loop):
+# `go test -race` (Makefile `test`) needs CGO + a C compiler to link the race runtime,
+# and golang:1.25-alpine ships neither. gcc + musl-dev supply it. Placed as a trailing
+# layer so the air-install + go-mod-download layers above stay cached (no Go-proxy
+# round-trip on rebuild — only the alpine apk mirror is hit). Dev-only image; the size
+# cost is accepted here and never reaches the production Dockerfile (multi-stage).
+RUN apk add --no-cache gcc musl-dev
+# Pin CGO on so the race build never silently degrades to a cgo-off no-op.
+ENV CGO_ENABLED=1
+
 EXPOSE 9090
 
 CMD ["air", "-c", ".air.toml"]
