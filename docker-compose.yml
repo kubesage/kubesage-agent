@@ -8,6 +8,7 @@
 # local clusters. A malicious dependency (post-supply-chain pinning, pre-20.5)
 # could exfiltrate cluster credentials from the container layer. For dev work
 # that doesn't need cluster access, run with `KUBECONFIG=/dev/null make dev`.
+name: kubesage-agent
 services:
   agent:
     profiles: ["dev"]
